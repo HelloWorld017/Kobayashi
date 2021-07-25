@@ -1,0 +1,22 @@
+{
+	"compilerOptions": {
+		"target": "esnext",
+		"strict": true,
+		
+		"baseUrl": ".",
+		"forceConsistentCasingInFileNames": true,
+		
+		"moduleResolution": "node",
+		"isolatedModules": true,
+		"esModuleInterop": true,
+		
+		"typeRoots": ["./node_modules/@types"],
+		"paths": {
+			"@/*": [ "./src/*" ],
+		},
+		
+		"experimentalDecorators": true
+	},
+	"exclude": [ "node_modules" ],
+	"include": [ "**/*.ts" ],
+}
