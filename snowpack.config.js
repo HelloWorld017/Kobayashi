@@ -1,9 +1,9 @@
 module.exports = {
 	mount: {
-		public: { url: '/assets', static: true },
+		assets: { url: '/', static: true },
 		src: { url: '/dist' },
 	},
-	
+
 	alias: {
 		'@': './src'
 	},

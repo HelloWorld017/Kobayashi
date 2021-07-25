@@ -1,3 +1,8 @@
 import Maidragon from '../';
 
-Maidragon(document.querySelector('canvas'));
+const canvas = document.querySelector('canvas');
+if (!canvas) {
+	throw new Error('No canvas exists!');
+}
+
+Maidragon(canvas);

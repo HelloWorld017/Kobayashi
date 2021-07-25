@@ -4,11 +4,15 @@ import type { DeepPartial } from '@/types';
 export const Configurable =
 	<ConfigurableType extends Record<string, unknown>>(defaultConfiguration: ConfigurableType) => {
 		class ConfigurableClass {
-			static config: ConfigurableType = defaultConfiguration;
-			static setConfig(newConfig: DeepPartial<ConfigurableType>) {
-				ConfigurableClass.config = merge(ConfigurableClass.config, newConfig);
+			config: ConfigurableType = defaultConfiguration;
+			constructor(baseConfig: DeepPartial<ConfigurableType> = {}) {
+				this.setConfig(baseConfig);
+			}
+
+			setConfig(newConfig: DeepPartial<ConfigurableType>) {
+				this.config = merge(this.config, newConfig);
 			}
 		}
-		
+
 		return ConfigurableClass;
 	};
