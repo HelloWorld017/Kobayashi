@@ -1,6 +1,6 @@
-import { Configurable } from './utils/configurable';
-import { Entity, EntityConfiguration } from './Entity';
-import type { Color, DeepPartial } from './types';
+import { Configurable } from '@/utils/configurable';
+import { Entity, EntityConfiguration } from '../';
+import type { Color, DeepPartial } from '@/types';
 
 export type RendererConfiguration = {
 	backgroundColor: Color,

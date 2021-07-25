@@ -1,5 +1,5 @@
 import { EyeCatchText } from './constants/EyeCatchText';
-import { Renderer } from './Renderer';
+import { Renderer } from './render';
 
 const Maidragon = (canvas: HTMLCanvasElement, character?: string) => {
 	const renderer = new Renderer(canvas);
@@ -15,5 +15,4 @@ const Maidragon = (canvas: HTMLCanvasElement, character?: string) => {
 
 export default Maidragon;
 export * from './constants/EyeCatchText';
-export * from './Entity';
-export * from './Renderer';
+export * from './render';

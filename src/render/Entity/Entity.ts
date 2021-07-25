@@ -235,22 +235,22 @@ class Entity extends Configurable(DefaultConfiguration) {
 
 	static glProgram: WebGLProgram;
 	static glAttribs: {
-		character: number;
+		character: WebGLUniformLocation;
 
 		dot: {
-			color: number;
-			size: number;
-			scaleX: number;
+			color: WebGLUniformLocation;
+			size: WebGLUniformLocation;
+			scaleX: WebGLUniformLocation;
 		},
 
 		text: {
-			scaleX: number;
-			scaleY: number;
+			scaleX: WebGLUniformLocation;
+			scaleY: WebGLUniformLocation;
 		}
 
 		mix: {
-			transition: number;
-			threshold: number;
+			transition: WebGLUniformLocation;
+			threshold: WebGLUniformLocation;
 		}
 	};
 
@@ -268,26 +268,24 @@ class Entity extends Configurable(DefaultConfiguration) {
 
 		Entity.glProgram = entityProgram;
 		Entity.glAttribs = {
-			character: gl.getAttribLocation(entityProgram, 'character'),
+			character: gl.getUniformLocation(entityProgram, 'character')!,
 
 			dot: {
-				color: gl.getAttribLocation(entityProgram, 'dotColor'),
-				size:  gl.getAttribLocation(entityProgram, 'dotSize'),
-				scaleX: gl.getAttribLocation(entityProgram, 'dotScaleX'),
+				color: gl.getUniformLocation(entityProgram, 'dotColor')!,
+				size:  gl.getUniformLocation(entityProgram, 'dotSize')!,
+				scaleX: gl.getUniformLocation(entityProgram, 'dotScaleX')!,
 			},
 
 			text: {
-				scaleX: gl.getAttribLocation(entityProgram, 'textScaleX'),
-				scaleY: gl.getAttribLocation(entityProgram, 'textScaleY')
+				scaleX: gl.getUniformLocation(entityProgram, 'textScaleX')!,
+				scaleY: gl.getUniformLocation(entityProgram, 'textScaleY')!
 			},
 
 			mix: {
-				transition: gl.getAttribLocation(entityProgram, 'mixTransition'),
-				threshold: gl.getAttribLocation(entityProgram, 'mixThreshold')
+				transition: gl.getUniformLocation(entityProgram, 'mixTransition')!,
+				threshold: gl.getUniformLocation(entityProgram, 'mixThreshold')!
 			}
 		};
-
-		console.log(Entity.glAttribs);
 	}
 }
 
