@@ -1,3 +1,4 @@
+import { colorToFloat } from '@/utils/color';
 import { Configurable } from '@/utils/configurable';
 import { Entity, EntityConfiguration } from '../';
 import type { Color, DeepPartial } from '@/types';
@@ -20,6 +21,7 @@ const DefaultConfiguration: RendererConfiguration = {
 
 class Renderer extends Configurable(DefaultConfiguration) {
 	gl: WebGL2RenderingContext;
+	canvas: HTMLCanvasElement;
 	entities: Entity[];
 	lastUpdate: number;
 	tick: number;
@@ -35,13 +37,14 @@ class Renderer extends Configurable(DefaultConfiguration) {
 			throw new Error('Failed to create the render context!');
 
 		this.gl = renderContext;
+		this.canvas = canvas;
 		this.entities = Array
 			.from({ length: this.config.chars })
 			.map<Entity>((_, index, { length }) => new Entity({
 				character: '',
 				position: {
-					x: window.innerWidth  / 2 - (index - (length - 1) / 2) * this.config.spacing,
-					y: window.innerHeight / 2
+					x: canvas.width  / 2 + (index - (length - 1) / 2) * this.config.spacing,
+					y: canvas.height / 2
 				}
 			}, this.config.letter));
 
@@ -53,7 +56,8 @@ class Renderer extends Configurable(DefaultConfiguration) {
 	}
 
 	initialize() {
-		this.entities.forEach(entity => entity.initialize(this.gl));
+		this.gl.enable(this.gl.BLEND);
+		this.entities.forEach(entity => entity.initialize(this.gl, this.canvas));
 		this.lastUpdate = Date.now();
 	}
 
@@ -69,7 +73,7 @@ class Renderer extends Configurable(DefaultConfiguration) {
 	render() {
 		const now = Date.now();
 		this.tick += now - this.lastUpdate;
-		this.gl.clearColor(...this.config.backgroundColor, 1);
+		this.gl.clearColor(...colorToFloat(this.config.backgroundColor), 1);
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
 		// Cannot use every, as it should not be short-circuited
@@ -103,7 +107,7 @@ class Renderer extends Configurable(DefaultConfiguration) {
 	}
 
 	updateSize() {
-		this.entities.forEach(entity => entity.updateSize(this.gl));
+		this.entities.forEach(entity => entity.updateSize(this.gl, this.canvas));
 	}
 
 	free() {

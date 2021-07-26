@@ -1,3 +1,4 @@
+import { colorToCssColor, colorToFloat } from '@/utils/color';
 import { cubicBezier } from '@/utils/easing';
 import { makeShader } from '@/utils/render';
 
@@ -20,9 +21,12 @@ export type EntityConfiguration = {
 	easing: {
 		[K in EntityAnimations]: CubicBezierEasing;
 	}
-	font: string;
 	size: number;
+	font: string;
+	fontSize: number;
+	fontWeight: number;
 	dotSize: number;
+	smoothing: number;
 	color: Color;
 	mixThreshold: number;
 };
@@ -38,9 +42,12 @@ const DefaultConfiguration: EntityConfiguration = {
 		textExpand:  [ 0.8, 1.5, 0.8, 1.0 ],
 		dotToText:   [ 0.8, 1.5, 0.8, 1.0 ]
 	},
-	font: 'Inter',
 	size: 144,
+	font: 'Inter',
+	fontSize: 144,
+	fontWeight: 700,
 	dotSize: 32,
+	smoothing: 1,
 	color: [ 18, 16, 14 ],
 	mixThreshold: 0.1
 };
@@ -52,10 +59,7 @@ class Entity extends Configurable(DefaultConfiguration) {
 	};
 	characterTexture?: WebGLTexture;
 	vertexArray?: WebGLVertexArrayObject;
-	vertexBuffers?: {
-		planeCoord: WebGLBuffer;
-		textureCoord: WebGLBuffer;
-	};
+	vertexBuffer?: WebGLBuffer;
 
 	constructor(data: EntityData, config: DeepPartial<EntityConfiguration> = {}) {
 		super(config);
@@ -82,7 +86,7 @@ class Entity extends Configurable(DefaultConfiguration) {
 		};
 	}
 
-	initialize(gl: WebGL2RenderingContext) {
+	initialize(gl: WebGL2RenderingContext, canvas: HTMLCanvasElement) {
 		const characterTexture = gl.createTexture();
 		if (!characterTexture)
 			throw new Error('Failed to create the buffer!');
@@ -96,17 +100,13 @@ class Entity extends Configurable(DefaultConfiguration) {
 
 		this.vertexArray = vertexArray;
 
-		const planeCoordBuffer = gl.createBuffer();
-		const textureCoordBuffer = gl.createBuffer();
-		if (!planeCoordBuffer || !textureCoordBuffer)
+		const vertexBuffer = gl.createBuffer();
+		if (!vertexBuffer)
 			throw new Error('Failed to create the vertex buffer!');
 
-		this.vertexBuffers = {
-			planeCoord: planeCoordBuffer,
-			textureCoord: textureCoordBuffer
-		};
+		this.vertexBuffer = vertexBuffer;
 
-		this.updateSize(gl);
+		this.updateSize(gl, canvas);
 	}
 
 	free(gl: WebGL2RenderingContext) {
@@ -114,9 +114,8 @@ class Entity extends Configurable(DefaultConfiguration) {
 			gl.deleteVertexArray(this.vertexArray);
 		}
 
-		if (this.vertexBuffers) {
-			gl.deleteBuffer(this.vertexBuffers.planeCoord);
-			gl.deleteBuffer(this.vertexBuffers.textureCoord);
+		if (this.vertexBuffer) {
+			gl.deleteBuffer(this.vertexBuffer);
 		}
 
 		if (this.characterTexture) {
@@ -133,42 +132,34 @@ class Entity extends Configurable(DefaultConfiguration) {
 		characterRenderer.height = this.config.size;
 
 		const characterContext = characterRenderer.getContext('2d');
-		characterContext?.fillText(this.data.character, this.config.size / 2, this.config.size / 2);
+		if (!characterContext)
+			throw new Error('Failed to get texture context!');
 
-		const characterRendered = characterContext?.getImageData(0, 0, this.config.size, this.config.size);
-		if (!characterRendered)
-			throw new Error('Failed to render the character!');
+		characterContext.clearRect(0, 0, characterRenderer.width, characterRenderer.height);
+		characterContext.fillStyle = colorToCssColor(this.config.color);
+		characterContext.font = ''          +
+			/* this.config.fontWeight          + */
+			`${this.config.fontSize}px`     +
+			JSON.stringify(this.config.font);
 
+		characterContext.textAlign = 'center';
+		characterContext.textBaseline = 'middle';
+		characterContext.fillText(this.data.character, this.config.size / 2, this.config.size / 2);
 
 		gl.bindTexture(gl.TEXTURE_2D, this.characterTexture);
 		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, characterRenderer);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		gl.bindTexture(gl.TEXTURE_2D, null);
 	}
 
-	updateSize(gl: WebGL2RenderingContext) {
-		if (!this.vertexArray || !this.vertexBuffers)
+	updateSize(gl: WebGL2RenderingContext, canvas: HTMLCanvasElement) {
+		if (!this.vertexArray || !this.vertexBuffer)
 			return;
 
-		const topLeft = {
-			x: (2 * this.data.position.x - this.config.size) / window.innerWidth  - 1,
-			y: (2 * this.data.position.y + this.config.size) / window.innerHeight - 1,
-		};
-
-		const bottomRight = {
-			x: (2 * this.data.position.x + this.config.size) / window.innerWidth  - 1,
-			y: (2 * this.data.position.y - this.config.size) / window.innerHeight - 1,
-		};
-
-		const planeCoord = new Float32Array([
-			topLeft.x,     topLeft.y,
-			topLeft.x,     bottomRight.y,
-			bottomRight.x, bottomRight.y,
-			topLeft.x,     topLeft.y,
-			bottomRight.x, bottomRight.y,
-			bottomRight.x, topLeft.y
-		]);
-
-		const textureCoord = new Float32Array([
+		const vertices = new Float32Array([
 			-1,  1,
 			-1, -1,
 			 1, -1,
@@ -177,16 +168,28 @@ class Entity extends Configurable(DefaultConfiguration) {
 			 1,  1
 		]);
 
-		gl.bindVertexArray(this.vertexArray);
-		gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-		gl.enableVertexAttribArray(0);
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffers.planeCoord);
-		gl.bufferData(gl.ARRAY_BUFFER, planeCoord.buffer, gl.STATIC_DRAW);
+		const entityX = (2 * this.data.position.x) / canvas.width  - 1;
+		const entityY = (2 * this.data.position.y) / canvas.height - 1;
+		const sizeX = this.config.size / canvas.width;
+		const sizeY = this.config.size / canvas.height;
 
-		gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);
+		const vertexData = new Float32Array(vertices.length * 2);
+		for (let i = 0; i < vertices.length; i += 2) {
+			vertexData[2 * i]     = entityX + vertices[i]     * sizeX; // planeCoordX
+			vertexData[2 * i + 1] = entityY + vertices[i + 1] * sizeY; // planeCoordY
+			vertexData[2 * i + 2] =   vertices[i    ];         // textureCoordX
+			vertexData[2 * i + 3] = - vertices[i + 1];         // textureCoordY
+		}
+
+		gl.bindVertexArray(this.vertexArray);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, vertexData.buffer, gl.STATIC_DRAW);
+
+		gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
+		gl.enableVertexAttribArray(0);
+
+		gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
 		gl.enableVertexAttribArray(1);
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffers.textureCoord);
-		gl.bufferData(gl.ARRAY_BUFFER, textureCoord.buffer, gl.STATIC_DRAW);
 
 		gl.bindVertexArray(null);
 		gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -196,8 +199,7 @@ class Entity extends Configurable(DefaultConfiguration) {
 		if (!this.characterTexture || !this.vertexArray)
 			throw new Error('Non-initialized entity!');
 
-		if (tick < 0)
-			return false;
+		const innerTick = Math.max(0, Math.min(tick, this.animationDuration));
 
 		gl.useProgram(Entity.glProgram);
 
@@ -207,23 +209,26 @@ class Entity extends Configurable(DefaultConfiguration) {
 		gl.uniform1i(Entity.glAttribs.character, 0);
 
 		// Assign dot-related uniforms
-		const dotScaleX = this.timingFunction.dotCollapse(tick);
-		gl.uniform3f(Entity.glAttribs.dot.color, ...this.config.color);
-		gl.uniform1f(Entity.glAttribs.dot.size, this.config.dotSize);
+		const dotScaleX = this.timingFunction.dotCollapse(innerTick);
+		gl.uniform3f(Entity.glAttribs.dot.color, ...colorToFloat(this.config.color));
+		gl.uniform1f(Entity.glAttribs.dot.size, this.config.dotSize / this.config.size);
 		gl.uniform1f(Entity.glAttribs.dot.scaleX, dotScaleX);
 
 		// Assign text-related uniforms
-		const textScaleX = this.timingFunction.textExpand(tick);
-		const textScaleY = this.timingFunction.textExpand(tick);
+		const textScaleX = this.timingFunction.textExpand(innerTick);
+		const textScaleY = this.timingFunction.textExpand(innerTick);
 		gl.uniform1f(Entity.glAttribs.text.scaleX, textScaleX);
 		gl.uniform1f(Entity.glAttribs.text.scaleY, textScaleY);
 
 		// Assign mix-related uniforms
-		const mixTransition = this.timingFunction.dotToText(tick);
+		const mixTransition = Math.max(0, Math.min(1, this.timingFunction.dotToText(innerTick)));
 		gl.uniform1f(Entity.glAttribs.mix.threshold, this.config.mixThreshold);
 		gl.uniform1f(Entity.glAttribs.mix.transition, mixTransition);
 
+		gl.uniform1f(Entity.glAttribs.smoothing, this.config.smoothing / this.config.size);
+
 		gl.bindVertexArray(this.vertexArray);
+		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 		gl.drawArrays(gl.TRIANGLES, 0, 6);
 
 		return tick > this.animationDuration;
@@ -252,6 +257,8 @@ class Entity extends Configurable(DefaultConfiguration) {
 			transition: WebGLUniformLocation;
 			threshold: WebGLUniformLocation;
 		}
+
+		smoothing: WebGLUniformLocation;
 	};
 
 	static initializeEntity(gl: WebGL2RenderingContext) {
@@ -284,7 +291,9 @@ class Entity extends Configurable(DefaultConfiguration) {
 			mix: {
 				transition: gl.getUniformLocation(entityProgram, 'mixTransition')!,
 				threshold: gl.getUniformLocation(entityProgram, 'mixThreshold')!
-			}
+			},
+
+			smoothing: gl.getUniformLocation(entityProgram, 'smoothing')!
 		};
 	}
 }

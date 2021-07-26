@@ -18,19 +18,39 @@ uniform float textScaleY;
 uniform float mixTransition;
 uniform float mixThreshold;
 
-// texture coordinate (-1 ~ 1)
+uniform float smoothing;
+
+// texture coordinate (0 ~ 1)
 in vec2 textureCoord;
 out vec4 fragColor;
 
 void main() {
 	// get the color of the dot, using the distance from the center
-	float dotDistance = length(vec2(textureCoord.x / dotScaleX, textureCoord.y));
-	vec4 dotTexture = vec4(dotColor, step(dotSize, dotDistance));
+	float dotDistance = distance(
+		vec2(
+			(textureCoord.x * dotScaleX + 1.0) * 0.5,
+			(textureCoord.y             + 1.0) * 0.5
+		),
+		vec2(0.5, 0.5)
+	) * 2.0f;
+
+	vec4 dotTexture = vec4(dotColor, smoothstep(dotDistance - smoothing, dotDistance + smoothing, dotSize));
 
 	// get the color of the text at the position
-	vec4 textTexture = texture(character, vec2(textureCoord.x / textScaleX, textureCoord.y / textScaleY));
+	vec4 textTexture = texture(
+		character,
+		vec2(
+			(textureCoord.x * textScaleX + 1.0) * 0.5,
+			(textureCoord.y * textScaleY + 1.0) * 0.5
+		)
+	);
 
-	// mix two textures, use step function for the gooey effect
-	vec4 mixedTexture = mix(textTexture, dotTexture, mixTransition);
-	fragColor = vec4(mixedTexture.rgb, step(mixThreshold, mixedTexture.a));
+	// mix two textures
+	vec4 mixedTexture = mix(dotTexture, textTexture, mixTransition);
+
+	// use step function for the gooey effect
+	fragColor = vec4(
+		mixedTexture.rgb,
+		smoothstep(mixThreshold - smoothing, mixThreshold + smoothing, mixedTexture.a)
+	);
 }
