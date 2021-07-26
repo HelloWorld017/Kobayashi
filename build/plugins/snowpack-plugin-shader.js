@@ -8,7 +8,7 @@ module.exports = (_snowpackConfig, pluginOptions) => {
 	const options = { ...defaultOptions, pluginOptions };
 
 	return {
-		name: 'snowpack-pluggin-shader',
+		name: 'snowpack-plugin-shader',
 
 		resolve: {
 			input: [ options.shaderSuffix ],

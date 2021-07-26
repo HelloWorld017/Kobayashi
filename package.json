@@ -2,7 +2,7 @@
   "name": "maidragon",
   "version": "1.0.0",
   "description": "A simple canvas renderer of Kobayashi's Maidragon Eyecatch",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "snowpack dev"
